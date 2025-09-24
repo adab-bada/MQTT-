@@ -1,0 +1,28 @@
+/* Mengimpor directive dasar dari Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Gaya dasar untuk body */
+body {
+  @apply bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Gaya untuk scrollbar agar lebih modern */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-light-bg dark:bg-dark-bg;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
