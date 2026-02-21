@@ -4,34 +4,55 @@ import { useMqttStore } from '../../stores/useMqttStore';
 import { useUiStore } from '../../stores/useUiStore';
 import RelayControl from './RelayControl';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart, Thermometer, Cpu, Wifi, Settings, Timer } from 'lucide-react';
+import {
+  Wifi,
+  Settings,
+  Timer,
+  Bike,
+  ShieldCheck,
+  ShieldAlert,
+  Activity,
+  Battery,
+  Signal
+} from 'lucide-react';
 
 interface DeviceControlPanelProps {
   deviceId: string;
 }
 
 /**
- * @description Panel kontrol utama untuk perangkat yang dipilih.
- * Menampilkan detail perangkat dan daftar kontrol relay.
+ * @description Panel kontrol utama dengan desain Cluster Instrumen Digital Otomotif.
  */
 const DeviceControlPanel: React.FC<DeviceControlPanelProps> = ({ deviceId }) => {
-  // Mengambil data dan fungsi dari store
   const device = useDeviceStore(state => state.devices[deviceId]);
   const { publish } = useMqttStore();
   const { openDeviceSettingsModal, openTimerSettingsModal } = useUiStore();
+  const AnyAnimatePresence = AnimatePresence as any;
 
-  // Handler untuk toggle relay
   const handleToggleRelay = (relayId: number, currentState: boolean) => {
     const topic = `relay/${deviceId}/command`;
-    // Format payload sesuai dengan yang diharapkan oleh firmware ESP
-    // {"output0":"1"} atau {"output0":"0"}
     const payload = JSON.stringify({
       [`output${relayId}`]: currentState ? "0" : "1"
     });
     publish(topic, payload);
   };
 
-  // Jika perangkat tidak ditemukan (misalnya, setelah dihapus)
+  // Logika Master Security
+  // Relay 0 usually Alarm, Relay 1 usually Engine Kill
+  const isAlarmOn = device?.relays[0]?.isOn;
+  const isEngineCut = device?.relays[1]?.isOn;
+  const isSecured = isAlarmOn && isEngineCut;
+
+  const toggleMasterSecurity = () => {
+    const topic = `relay/${deviceId}/command`;
+    const targetState = isSecured ? "0" : "1";
+    const payload = JSON.stringify({
+      "output0": targetState,
+      "output1": targetState
+    });
+    publish(topic, payload);
+  };
+
   if (!device) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -40,107 +61,159 @@ const DeviceControlPanel: React.FC<DeviceControlPanelProps> = ({ deviceId }) => 
     );
   }
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1 }
-  };
-
   return (
-    <AnimatePresence mode="wait">
-      <>
-        <motion.div
-          key={deviceId}
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 50 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-6"
-        >
-          {/* Header Panel */}
-          <motion.div variants={itemVariants} className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">{device.name}</h1>
-              <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                ID: {device.deviceId} | IP: {device.ipAddress}
+    <AnyAnimatePresence mode="wait">
+      <motion.div
+        key={deviceId}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.4 }}
+        className="space-y-8 pb-10"
+      >
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center space-x-3 mb-1">
+              <Bike className="text-dark-primary" size={28} />
+              <h1 className="text-3xl font-black tracking-tight text-white uppercase italic">
+                {device.name}
+              </h1>
+            </div>
+            <p className="text-sm font-mono text-dark-text-secondary bg-white/5 px-2 py-1 rounded inline-block">
+              SYS-ID: {device.deviceId} {' // '} IP: {device.ipAddress}
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={openTimerSettingsModal}
+              className="p-3 rounded-xl bg-dark-card border border-white/5 hover:border-dark-primary/50 transition-all"
+              title="Jadwal Keamanan"
+            >
+              <Timer size={20} className="text-dark-text-secondary" />
+            </button>
+            <button
+              onClick={openDeviceSettingsModal}
+              className="p-3 rounded-xl bg-dark-card border border-white/5 hover:border-dark-primary/50 transition-all"
+              title="Konfigurasi Sistem"
+            >
+              <Settings size={20} className="text-dark-text-secondary" />
+            </button>
+          </div>
+        </div>
+
+        {/* Status Dashboard Cluster */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <DashboardCard
+            icon={<Signal size={20} />}
+            label="Signal Strength"
+            value={`${device.rssi || '-'} dBm`}
+            status={device.rssi && device.rssi > -70 ? 'good' : 'warning'}
+          />
+          <DashboardCard
+            icon={<Battery size={20} />}
+            label="Main Voltage"
+            value="12.6 V" // Mocked as requested, prepared in UI
+            status="good"
+          />
+          <DashboardCard
+            icon={<Activity size={20} />}
+            label="System Load"
+            value={`${device.freeRam ? (device.freeRam / 1024).toFixed(1) : '-'} KB`}
+            status="good"
+          />
+          <DashboardCard
+            icon={<Wifi size={20} />}
+            label="Link Status"
+            value={device.isMqttConnected ? 'ONLINE' : 'OFFLINE'}
+            status={device.isMqttConnected ? 'good' : 'error'}
+          />
+        </div>
+
+        {/* Visual Security Status & Master Switch */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className={`lg:col-span-2 rounded-3xl p-8 relative overflow-hidden transition-all duration-500 flex flex-col items-center justify-center text-center ${
+            isSecured
+              ? 'bg-gradient-to-br from-dark-success/20 to-dark-bg border border-dark-success/30 shadow-neon-blue'
+              : 'bg-gradient-to-br from-dark-accent/20 to-dark-bg border border-dark-accent/30'
+          }`}>
+            <div className="relative z-10">
+              <div className={`mb-4 inline-flex p-6 rounded-full transition-all duration-700 ${
+                isSecured ? 'bg-dark-success/20 text-dark-success scale-110' : 'bg-dark-accent/20 text-dark-accent'
+              }`}>
+                {isSecured ? <ShieldCheck size={64} /> : <ShieldAlert size={64} />}
+              </div>
+              <h2 className="text-4xl font-black mb-2 tracking-widest uppercase italic">
+                {isSecured ? 'System Secured' : 'System Vulnerable'}
+              </h2>
+              <p className="text-dark-text-secondary mb-8 max-w-md mx-auto">
+                {isSecured
+                  ? 'Engine is locked and alarm system is active. Your vehicle is safe.'
+                  : 'Engine is ready to start and alarm system is inactive. Use caution.'}
               </p>
-            </div>
-            <div className="flex items-center space-x-2">
+
               <button
-                onClick={openTimerSettingsModal}
-                className="p-3 rounded-full hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
-                aria-label="Pengaturan Timer"
-                title="Pengaturan Timer"
+                onClick={toggleMasterSecurity}
+                className={`px-8 py-4 rounded-full font-bold uppercase tracking-widest transition-all duration-300 shadow-xl ${
+                  isSecured
+                    ? 'bg-dark-accent hover:bg-red-600 text-white'
+                    : 'bg-dark-success hover:bg-emerald-600 text-white'
+                }`}
               >
-                <Timer size={24} />
-              </button>
-              <button
-                onClick={openDeviceSettingsModal}
-                className="p-3 rounded-full hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
-                aria-label="Pengaturan Perangkat"
-                title="Pengaturan Perangkat"
-              >
-                <Settings size={24} />
+                {isSecured ? 'Disarm All Systems' : 'Activate Full Security'}
               </button>
             </div>
-          </motion.div>
 
-          {/* Status Perangkat */}
-          <motion.div
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <StatusCard icon={<Wifi size={24} />} label="WiFi RSSI" value={`${device.rssi || 'N/A'} dBm`} />
-            <StatusCard icon={<Cpu size={24} />} label="Free RAM" value={`${device.freeRam || 'N/A'} B`} />
-            <StatusCard icon={<BarChart size={24} />} label="Uptime" value={`${device.uptime ? (device.uptime / 1000).toFixed(0) : 'N/A'} s`} />
-            <StatusCard icon={<Thermometer size={24} />} label="MQTT" value={device.isMqttConnected ? 'Terhubung' : 'Terputus'} />
-          </motion.div>
+            {/* Background Decoration */}
+            <Bike className={`absolute -bottom-10 -right-10 w-64 h-64 opacity-5 transition-transform duration-1000 ${
+              isSecured ? 'rotate-0' : 'rotate-12 translate-x-10'
+            }`} />
+          </div>
 
-          {/* Kontrol Relay */}
-          <motion.div
-            className="grid grid-cols-1 md:grid-cols-2 gap-4"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-dark-text-secondary px-2">
+              Individual Controls
+            </h3>
             {device.relays.map((relay) => (
-              <motion.div key={relay.id} variants={itemVariants}>
-                <RelayControl
-                  relay={relay}
-                  onToggle={() => handleToggleRelay(relay.id, relay.isOn)}
-                />
-              </motion.div>
+              <RelayControl
+                key={relay.id}
+                relay={relay}
+                onToggle={() => handleToggleRelay(relay.id, relay.isOn)}
+              />
             ))}
-          </motion.div>
-        </motion.div>
-      </>
-    </AnimatePresence>
+          </div>
+        </div>
+      </motion.div>
+    </AnyAnimatePresence>
   );
 };
 
-// Komponen kecil untuk kartu status
-const StatusCard: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
-  <div className="bg-light-card dark:bg-dark-card p-4 rounded-lg shadow-sm flex items-center space-x-4">
-    <div className="bg-light-bg dark:bg-dark-bg p-3 rounded-full text-light-primary dark:text-dark-primary">
-      {icon}
-    </div>
-    <div>
-      <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">{label}</p>
-      <p className="text-lg font-semibold">{value}</p>
-    </div>
-  </div>
-);
+// Komponen Card khusus Dashboard
+const DashboardCard: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  status: 'good' | 'warning' | 'error'
+}> = ({ icon, label, value, status }) => {
+  const statusColors = {
+    good: 'text-dark-success',
+    warning: 'text-dark-warning',
+    error: 'text-dark-accent'
+  };
 
+  return (
+    <div className="bg-dark-card border border-white/5 p-5 rounded-2xl shadow-inner-dark group hover:border-dark-primary/30 transition-all">
+      <div className="flex items-center justify-between mb-3">
+        <div className="p-2 bg-dark-bg rounded-lg text-dark-text-secondary group-hover:text-dark-primary transition-colors">
+          {icon}
+        </div>
+        <div className={`w-2 h-2 rounded-full animate-pulse ${statusColors[status].replace('text', 'bg')}`} />
+      </div>
+      <p className="text-xs font-bold uppercase tracking-wider text-dark-text-secondary mb-1">{label}</p>
+      <p className="text-xl font-mono font-bold text-white tracking-tight">{value}</p>
+    </div>
+  );
+};
 
 export default DeviceControlPanel;

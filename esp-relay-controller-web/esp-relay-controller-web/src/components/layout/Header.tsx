@@ -1,82 +1,83 @@
 import React from 'react';
-import { Sun, Moon, Settings, Wifi, WifiOff, Menu } from 'lucide-react';
+import { Sun, Moon, Settings, Wifi, WifiOff, Menu, Battery, Shield } from 'lucide-react';
 import { useUiStore } from '../../stores/useUiStore';
 import { useMqttStore } from '../../stores/useMqttStore';
 
 /**
- * @description Komponen Header aplikasi.
- * Menampilkan judul, status koneksi MQTT, dan kontrol untuk tema & pengaturan.
+ * @description Komponen Header aplikasi dengan estetika instrumen otomotif.
  */
 const Header: React.FC = () => {
-  // Mengambil state dan fungsi dari store UI dan MQTT
   const { theme, toggleTheme, openMqttSettingsModal, toggleSidebar } = useUiStore();
   const mqttStatus = useMqttStore(state => state.status);
 
-  // Fungsi untuk mendapatkan warna dan teks indikator status MQTT
   const getStatusIndicator = () => {
     switch (mqttStatus) {
       case 'connected':
-        return { color: 'text-green-500', text: 'Terhubung', Icon: Wifi };
+        return { color: 'text-dark-success', text: 'MQTT CONNECTED', Icon: Wifi };
       case 'connecting':
-        return { color: 'text-yellow-500', text: 'Menghubungkan...', Icon: WifiOff };
+        return { color: 'text-dark-warning', text: 'CONNECTING...', Icon: WifiOff };
       case 'reconnecting':
-        return { color: 'text-yellow-500', text: 'Menyambung ulang...', Icon: WifiOff };
+        return { color: 'text-dark-warning', text: 'RECONNECTING...', Icon: WifiOff };
       case 'closed':
-        return { color: 'text-red-500', text: 'Terputus', Icon: WifiOff };
-      case 'error':
-        return { color: 'text-red-500', text: 'Error', Icon: WifiOff };
+        return { color: 'text-dark-accent', text: 'MQTT DISCONNECTED', Icon: WifiOff };
       default:
-        return { color: 'text-gray-500', text: 'Tidak Diketahui', Icon: WifiOff };
+        return { color: 'text-gray-500', text: 'UNKNOWN', Icon: WifiOff };
     }
   };
 
   const { color, text, Icon } = getStatusIndicator();
 
   return (
-    <header className="bg-light-card dark:bg-dark-card shadow-md p-4 flex justify-between items-center z-20 relative">
+    <header className="bg-dark-card border-b border-white/5 shadow-lg p-4 flex justify-between items-center z-20 relative">
       <div className="flex items-center space-x-4">
-        {/* Tombol Menu untuk Mobile */}
         <button
           onClick={toggleSidebar}
-          className="p-2 rounded-full hover:bg-light-bg dark:hover:bg-dark-bg transition-colors md:hidden"
-          aria-label="Buka Menu"
-          title="Buka Menu"
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors md:hidden text-white"
         >
-          <Menu size={24} />
+          <Menu size={20} />
         </button>
-        {/* Judul Aplikasi */}
-        <h1 className="text-xl md:text-2xl font-bold text-light-primary dark:text-dark-primary">
-          ESP Relay Controller
-        </h1>
+
+        <div className="flex items-center space-x-2">
+          <div className="bg-dark-primary p-1.5 rounded-lg shadow-neon-blue">
+            <Shield size={20} className="text-white" />
+          </div>
+          <h1 className="text-xl font-black italic tracking-tighter text-white uppercase">
+            MOTO<span className="text-dark-primary">GUARD</span>
+          </h1>
+        </div>
       </div>
 
-      {/* Kontrol dan Status di sisi kanan */}
-      <div className="flex items-center space-x-2 md:space-x-4">
-        {/* Indikator Status MQTT */}
-        <div className="hidden sm:flex items-center space-x-2">
-          <span className={`text-sm font-medium ${color}`}>{text}</span>
-          <Icon className={color} size={20} />
+      <div className="flex items-center space-x-3 md:space-x-6">
+        {/* Mocked Battery Indicator for Automotive feel */}
+        <div className="hidden sm:flex items-center space-x-2 bg-dark-bg px-3 py-1.5 rounded-full border border-white/5">
+          <Battery size={16} className="text-dark-success" />
+          <span className="text-xs font-mono font-bold text-dark-success">12.6V</span>
         </div>
 
-        {/* Tombol Pengaturan MQTT */}
-        <button
-          onClick={openMqttSettingsModal}
-          className="p-2 rounded-full hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
-          aria-label="Pengaturan MQTT"
-          title="Pengaturan MQTT"
-        >
-          <Settings size={20} />
-        </button>
+        <div className="hidden lg:flex items-center space-x-2 bg-dark-bg px-3 py-1.5 rounded-full border border-white/5">
+          <Icon className={color} size={16} />
+          <span className={`text-[10px] font-black tracking-widest ${color}`}>{text}</span>
+        </div>
 
-        {/* Tombol Ganti Tema */}
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-full hover:bg-light-bg dark:hover:bg-dark-bg transition-colors"
-          aria-label="Ganti Tema"
-          title="Ganti Tema"
-        >
-          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-        </button>
+        <div className="flex items-center bg-dark-bg p-1 rounded-xl border border-white/5">
+          <button
+            onClick={openMqttSettingsModal}
+            className="p-2 rounded-lg hover:bg-white/5 transition-colors text-dark-text-secondary hover:text-white"
+            title="MQTT Config"
+          >
+            <Settings size={18} />
+          </button>
+
+          <div className="w-px h-4 bg-white/10 mx-1" />
+
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg hover:bg-white/5 transition-colors text-dark-text-secondary hover:text-white"
+            title="Toggle Theme"
+          >
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+        </div>
       </div>
     </header>
   );

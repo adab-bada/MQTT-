@@ -140,7 +140,9 @@ const DeviceSettingsModal: React.FC = () => {
                   onChange={(e) => handleRelayChange(index, 'pin', parseInt(e.target.value))}
                 />
                 {device.relays[index].pin !== relay.pin && (
-                   <AlertTriangle size={16} className="absolute top-0 right-0 mt-1 mr-1 text-yellow-500" title="Mengubah pin akan me-restart perangkat"/>
+                   <span title="Mengubah pin akan me-restart perangkat" className="absolute top-0 right-0 mt-1 mr-1">
+                     <AlertTriangle size={16} className="text-yellow-500" />
+                   </span>
                 )}
               </div>
             </div>
